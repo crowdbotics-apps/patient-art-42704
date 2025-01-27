@@ -22,6 +22,8 @@ from google.oauth2 import service_account
 from google.cloud import secretmanager
 from google.auth.exceptions import DefaultCredentialsError
 from google.api_core.exceptions import PermissionDenied
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 from modules.manifest import get_modules
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -34,6 +36,16 @@ env.read_env(env_file)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DEBUG", default=False)
 
+try:
+    # Retrieve secrets from Azure Key Vault
+    azure_credentials = DefaultAzureCredential()
+    vault_url = env.str("AZURE_KEYVAULT_RESOURCEENDPOINT", "")
+    vault_secret_name = env.str("AZURE_KEY_VAULT_SECRET_NAME", "secrets")
+    client = SecretClient(vault_url=vault_url, credential=azure_credentials)
+    secret = client.get_secret(vault_secret_name)
+    env.read_env(io.StringIO(secret.value))
+except Exception as e:
+    pass
 try:
     # Pull secrets from Secret Manager
     _, project = google.auth.default()
@@ -287,3 +299,13 @@ if GS_BUCKET_NAME:
     DEFAULT_FILE_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
     STATICFILES_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
     GS_DEFAULT_ACL = "publicRead"
+# Configuration for Azure Storage
+AS_BUCKET_NAME = env.str("AS_BUCKET_NAME", "")
+if AS_BUCKET_NAME:
+    AZURE_ACCOUNT_NAME = AS_BUCKET_NAME
+    AZURE_TOKEN_CREDENTIAL = DefaultAzureCredential()
+    AS_STATIC_CONTAINER = env.str("AS_STATIC_CONTAINER", "static")
+    AS_MEDIA_CONTAINER = env.str("AS_MEDIA_CONTAINER", "media")
+    AZURE_URL_EXPIRATION_SECS  = env.int("AZURE_URL_EXPIRATION_SECS", 3600)
+    DEFAULT_FILE_STORAGE = "patient_art_42704.storage_backends.AzureMediaStorage"
+    STATICFILES_STORAGE = "patient_art_42704.storage_backends.AzureStaticStorage"
